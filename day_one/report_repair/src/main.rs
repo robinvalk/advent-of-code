@@ -1,6 +1,5 @@
 use std::env;
 use std::fs;
-use std::process;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -9,11 +8,22 @@ fn main() {
     let input_string = load_contents_from_file(input_file);
     let input_vec = convert_input_to_integer_vector(input_string);
     
-    for a in input_vec.iter().copied() {
+    'answer_one: for a in input_vec.iter().copied() {
         for b in input_vec.iter().copied() {
             if (a + b) == 2020 {
                 println!("Answer is: {}", a*b);
-                process::exit(1);
+                break 'answer_one;
+            }
+        }
+    }
+    
+    'answer_two: for a in input_vec.iter().copied() {
+        for b in input_vec.iter().copied() {
+            for c in input_vec.iter().copied() {
+                if (a + b + c) == 2020 {
+                    println!("Answer is: {}", a*b*c);
+                    break 'answer_two;
+                }
             }
         }
     }

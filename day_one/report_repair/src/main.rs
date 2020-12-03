@@ -7,10 +7,7 @@ struct Input {
 
 impl Input {
     fn new(filename: String) -> Input {
-        let instance = Input { filename };
-        instance.load_data();
-
-        instance
+        Input { filename }
     }
 
     fn load_data(&self) -> Vec<u32> {
@@ -22,7 +19,8 @@ impl Input {
     fn file_contents(&self) -> String {
         println!("Loading contents from file: {}", self.filename);
 
-        return fs::read_to_string(&self.filename).expect("Something went wrong loading contents from file");
+        return fs::read_to_string(&self.filename)
+            .expect("Something went wrong loading data from file");
     }
 }
 

@@ -1,110 +1,163 @@
 use std::env;
 use std::fs;
 
-fn main() {
-    let args: Vec<String> = env::args().collect();
-
-    let input_file: String = get_file_from_args(&args);
-    let input_string = load_contents_from_file(input_file);
-
-    let number_of_valid_passwords = count_valid_passwords(input_string.to_string());
-    println!("Answer one: {}", number_of_valid_passwords);
-
-    let number_of_valid_passwords = count_valid_passwords_two(input_string.to_string());
-    println!("Answer two: {}", number_of_valid_passwords);
+trait Validator<T> {
+    fn new(line: &str) -> T;
+    fn valid(&self) -> bool;
 }
 
-fn count_valid_passwords(input: String) -> u32 {
-    let mut count = 0;
-
-    for line in input.lines() {
-        let split: Vec<&str> = line.split(": ").collect();
-        let policy_string = &split[0];
-        let policy = parse_policy_string(policy_string.to_string());
-        let password = split[1].to_string();
-    
-        if password_matches_policy(policy, password) {
-            count += 1;
-        }
-    }
-
-    return count;
-}
-
-fn count_valid_passwords_two(input: String) -> u32 {
-    let mut count = 0;
-
-    for line in input.lines() {
-        let split: Vec<&str> = line.split(": ").collect();
-        let policy_string = &split[0];
-        let policy = parse_policy_string_two(policy_string.to_string());
-        let password = split[1].to_string();
-    
-        if password_matches_policy_two(policy, password) {
-            count += 1;
-        }
-    }
-
-    return count;
-}
-
-struct CountPasswordPolicy {
+struct CharacterCountValidator {
+    character: char,
     min: u32,
     max: u32,
-    character: char,
+    password: String,
 }
 
-struct PositionPasswordPolicy {
-    pos_one: u32,
-    pos_two: u32,
-    character: char,
-}
+impl Validator<CharacterCountValidator> for CharacterCountValidator {
+    fn new(line: &str) -> CharacterCountValidator {
+        let line_split = line.split(": ").collect::<Vec<&str>>();
+        let password = line_split.last().expect("Password not found on line!").to_string();
+        let char_split = line_split.first().expect("Line could not be parsed!").split(" ").collect::<Vec<&str>>();
+        let character = char_split.last().expect("Character could not be found in the line!").chars().nth(0).expect("Character was empty!");
+        let limits_split = char_split.first().expect("Character limits could not be found in line!").split("-").collect::<Vec<&str>>();
 
-fn parse_policy_string(policy_string: String) -> CountPasswordPolicy {
-    let policy_parts: Vec<&str> = policy_string.split_whitespace().collect();
-    let (limits, character) = (policy_parts[0], policy_parts[1].parse().unwrap());
-    let limit_parts: Vec<&str> = limits.split("-").collect();
-    let (min, max) = (limit_parts[0].parse::<u32>().unwrap(), limit_parts[1].parse::<u32>().unwrap());
+        let min = limits_split.first().expect("Minimal limit could not be split from input line!").to_string().parse().unwrap();
+        let max = limits_split.last().expect("Maximum limit could not be split from input line!").to_string().parse().unwrap();
 
-    return CountPasswordPolicy { min, max, character };
-}
-
-
-fn parse_policy_string_two(policy_string: String) -> PositionPasswordPolicy {
-    let policy_parts: Vec<&str> = policy_string.split_whitespace().collect();
-    let (limits, character) = (policy_parts[0], policy_parts[1].parse().unwrap());
-    let limit_parts: Vec<&str> = limits.split("-").collect();
-    let (pos_one, pos_two) = (limit_parts[0].parse::<u32>().unwrap(), limit_parts[1].parse::<u32>().unwrap());
-
-    return PositionPasswordPolicy { pos_one, pos_two, character };
-}
-
-fn password_matches_policy(policy: CountPasswordPolicy, password: String) -> bool {
-    let chars = password.chars().filter(|&el|el == policy.character);
-    let count: u32 = chars.count() as u32;
-
-    return count >= policy.min && count <= policy.max;
-}
-
-fn password_matches_policy_two(policy: PositionPasswordPolicy, password: String) -> bool {
-    let pos_one_valid = password.chars().nth(policy.pos_one as usize - 1).unwrap() == policy.character;
-    let pos_two_valid = password.chars().nth(policy.pos_two as usize - 1).unwrap() == policy.character;
-
-    return pos_one_valid != pos_two_valid && (pos_one_valid || pos_two_valid);
-}
-
-fn get_file_from_args(args: &[String]) -> String {
-    if args.len() > 1 {
-        return args[1].clone();
+        CharacterCountValidator {
+            character, min, max, password
+        }
     }
 
-    return "input.txt".to_string();
+    fn valid(&self) -> bool {
+        let chars = self.password.chars().filter(|&el|el == self.character);
+        let count: u32 = chars.count() as u32;
+
+        return count >= self.min && count <= self.max;
+    }
 }
 
-fn load_contents_from_file(filename: String) -> String {
-    println!("Loading input from file: {}", filename);
-    let input_string = fs::read_to_string(filename)
-        .expect("Something went wrong reading the input file");
+struct CharacterPositionValidator {
+    character: char,
+    positions: [usize; 2],
+    password: String,
+}
 
-    return input_string;
+impl CharacterPositionValidator {
+    fn position_valid(&self, position: usize) -> Option<bool> {
+        self.password.chars()
+            .nth(position)
+            .map(|char_on_position| char_on_position == self.character)
+    }
+}
+
+impl Validator<CharacterPositionValidator> for CharacterPositionValidator {
+    fn new(line: &str) -> CharacterPositionValidator {
+        let line_split = line.split(": ").collect::<Vec<&str>>();
+        let password = line_split.last().expect("Password not found on line!").to_string();
+        let char_split = line_split.first().expect("Line could not be parsed!").split(" ").collect::<Vec<&str>>();
+        let character = char_split.last().expect("Character could not be found in the line!").chars().nth(0).expect("Character was empty!");
+        let positions_split = char_split.first().expect("Character positions could not be found in line!").split("-").collect::<Vec<&str>>();
+
+
+        let positions = [
+            positions_split.first().expect("First position could not be found in line").parse::<usize>().expect("Could not parse first position!"),
+            positions_split.last().expect("First position could not be found in line").parse::<usize>().expect("Could not parse second position!"),
+        ];
+
+        CharacterPositionValidator {
+            character, password, positions
+        }
+    }
+
+    fn valid(&self) -> bool {
+        let mut results = [false, false];
+
+        for (index, &position) in self.positions.iter().enumerate() {
+            match self.position_valid(position) {
+                Some(is_valid) => results[index] = is_valid,
+                None => return false,
+            }
+        }
+
+        results.len() == self.positions.len() && results.iter().filter(|result|**result).count() == 1
+    }
+}
+
+struct Challenge<T> {
+    challenges: Vec<T>
+}
+
+trait ChallengeAnswerer<T> {
+    fn new<'a, I>(lines: I) -> Challenge<T> where I: IntoIterator<Item = &'a str>;
+    fn answer(&self) -> usize;
+}
+
+impl ChallengeAnswerer<CharacterPositionValidator> for Challenge<CharacterPositionValidator> {
+    fn new<'a, I>(lines: I) -> Challenge<CharacterPositionValidator>
+    where
+        I: IntoIterator<Item = &'a str>,
+    {
+        Challenge::<CharacterPositionValidator> {
+            challenges: lines.into_iter().map(|line|CharacterPositionValidator::new(line)).collect()
+        }
+    }
+
+    fn answer(&self) -> usize {
+        self.challenges.iter().filter(|validator| validator.valid()).count()
+    }
+}
+
+impl ChallengeAnswerer<CharacterCountValidator> for Challenge<CharacterCountValidator> {
+    fn new<'a, I>(lines: I) -> Challenge<CharacterCountValidator>
+    where
+        I: IntoIterator<Item = &'a str>,
+    {
+        Challenge::<CharacterCountValidator> {
+            challenges: lines.into_iter().map(|line|CharacterCountValidator::new(line)).collect()
+        }
+    }
+
+    fn answer(&self) -> usize {
+        self.challenges.iter().filter(|validator| validator.valid()).count()
+    }
+}
+
+struct Input {
+    filename: String,
+}
+
+impl Input {
+    fn new(filename: String) -> Input {
+        Input { filename }
+    }
+
+    fn parse_as_character_position_challenge(&self) -> Challenge<CharacterPositionValidator> {
+        let contents = self.file_contents();
+        let lines: Vec<&str> = contents.lines().collect();
+
+        Challenge::<CharacterPositionValidator>::new(lines)
+    }
+
+    fn parse_as_character_count_challenge(&self) -> Challenge<CharacterCountValidator> {
+        let contents = self.file_contents();
+        let lines: Vec<&str> = contents.lines().collect();
+
+        Challenge::<CharacterCountValidator>::new(lines)
+    }
+
+    fn file_contents(&self) -> String {
+        println!("Loading contents from file: {}", self.filename);
+
+        return fs::read_to_string(&self.filename).expect("Something went wrong loading contents from file");
+    }
+}
+
+fn main() {
+    let input = Input::new(env::args().nth(1).unwrap_or("input.txt".to_string()));
+    let challenge_one = input.parse_as_character_position_challenge();
+    let challenge_two = input.parse_as_character_count_challenge();
+
+    println!("Answer one: {}", challenge_one.answer());
+    println!("Answer two: {}", challenge_two.answer());
 }

@@ -122,10 +122,6 @@ impl PassportProcessor {
     }
 }
 
-struct Input {
-    filename: String,
-}
-
 struct PassportRecogniser {
     contents: String,
 }
@@ -158,12 +154,16 @@ impl PassportRecogniser {
     }
 }
 
+struct Input {
+    filename: String,
+}
+
 impl Input {
     fn new(filename: String) -> Input {
         Input { filename }
     }
 
-    fn load_as_passport_processor(&self) -> PassportProcessor {
+    fn load(&self) -> PassportProcessor {
         let contents = self.file_contents();
 
         let recogniser = PassportRecogniser { contents };
@@ -183,5 +183,5 @@ fn main() {
         env::args().nth(1).unwrap_or("passports.txt".to_string())
     );
 
-    println!("Answer one: {}", input.load_as_passport_processor().process());
+    println!("Answer one: {}", input.load().process());
 }

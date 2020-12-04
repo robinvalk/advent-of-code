@@ -1,12 +1,13 @@
 use std::env;
 use std::fs;
 use std::collections::HashMap;
+use regex::Regex;
 
 struct Passport {
     byr: i32,
     cid: Option<i32>,
     ecl: String,
-    eyr: String,
+    eyr: i32,
     hcl: String,
     hgt: String,
     iyr: i32,
@@ -20,7 +21,7 @@ impl Passport {
 
     fn map_from_str(line: &str) -> Option<Passport> {
         let data = Passport::load_data(line);
-        let is_valid = Passport::validate_data(&data);
+        let is_valid = Passport::validate_structure(&data);
 
         if !is_valid {
             return None;
@@ -31,7 +32,7 @@ impl Passport {
                 byr: data.get("byr").expect("Passport was invalid, byr missing!").parse::<i32>().expect("Couldn't parse byr value"),
                 cid: data.get("cid").map(|cid| cid.parse::<i32>().expect("Couldn't parse cid value")),
                 ecl: data.get("ecl").expect("Passport was invalid, ecl missing!").parse::<String>().unwrap(),
-                eyr: data.get("eyr").expect("Passport was invalid, eyr missing!").parse::<String>().unwrap(),
+                eyr: data.get("eyr").expect("Passport was invalid, eyr missing!").parse::<i32>().unwrap(),
                 hcl: data.get("hcl").expect("Passport was invalid, hcl missing!").parse::<String>().unwrap(),
                 hgt: data.get("hgt").expect("Passport was invalid, hgt missing!").parse::<String>().unwrap(),
                 iyr: data.get("iyr").expect("Passport was invalid, iyr missing!").parse::<i32>().expect("Couldn't parse iyr value"),
@@ -49,11 +50,65 @@ impl Passport {
             .collect::<HashMap<String, String>>()
     }
 
-    fn validate_data(data: &HashMap<String, String>) -> bool {
+    fn validate_structure(data: &HashMap<String, String>) -> bool {
         let ignored_keys = ["cid"];
         let keys = ["byr", "cid", "ecl", "eyr", "hcl", "hgt", "iyr", "pid"];
 
         keys.iter().filter(|key| !data.get(**key).is_some() && !ignored_keys.contains(*key)).count() == 0
+    }
+
+    fn is_valid(&self) -> bool {
+        // byr
+        if self.byr < 1920 || self.byr > 2002 {
+            println!("byr invalid");
+            return false;
+        }
+
+        // iyr
+        if self.iyr < 2010 || self.iyr > 2020 {
+            println!("iyr invalid");
+            return false;
+        }
+
+        // eyr
+        if self.eyr < 2020 || self.eyr > 2030 {
+            println!("eyr invalid");
+            return false;
+        }
+
+        // hgt
+        let height = self.hgt[..self.hgt.len()-2].parse::<i32>().unwrap_or(0);
+        if self.hgt.ends_with("cm") && (height < 150 || height > 193) {
+            println!("height invalid");
+            return false;
+        } else if self.hgt.ends_with("in") && (height < 59 || height > 76) {
+            println!("height invalid");
+            return false;
+        } else if !(self.hgt.ends_with("cm") || self.hgt.ends_with("in")) {
+            println!("height invalid");
+            return false;
+        }
+
+        // hcl
+        let re_hcl = Regex::new(r"^#[a-f0-9]{6}$").unwrap();
+        if !re_hcl.is_match(&self.hcl) {
+            println!("hcl invalid");
+            return false;
+        }
+
+        let re_ecl = Regex::new(r"^(amb|blu|brn|gry|grn|hzl|oth)$").unwrap();
+        if !re_ecl.is_match(&self.ecl) {
+            println!("ecl invalid");
+            return false;
+        }
+
+        let re_pid = Regex::new(r"^[0-9]{9}$").unwrap();
+        if !re_pid.is_match(&self.pid) {
+            println!("pid invalid");
+            return false;
+        }
+
+        return true;
     }
 }
 
@@ -63,7 +118,7 @@ struct PassportProcessor {
 
 impl PassportProcessor {
     fn process(&self) -> usize {
-        self.passports.iter().filter(|passport| passport.is_some()).count()
+        self.passports.iter().filter(|passport| passport.is_some() && passport.as_ref().unwrap().is_valid()).count()
     }
 }
 

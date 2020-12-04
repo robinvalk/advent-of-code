@@ -1,9 +1,10 @@
 [package]
 name = "passport_processing"
 version = "0.1.0"
-authors = ["Robin Valk <robin.valk@merapar.com>"]
+authors = ["Robin Valk"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+regex = "1"

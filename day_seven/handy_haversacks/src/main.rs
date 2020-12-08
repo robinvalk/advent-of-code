@@ -35,6 +35,14 @@ impl BagRule {
             .filter(|rule| rule.unwrap().has_child_with_name(bag_rules_processor, bag_name))
             .count() > 0
     }
+
+    fn count_bags(&self, bag_rules_processor: &BagRulesProcessor) -> i32 {
+        self.children.iter()
+            .map(|child| (child.amount, bag_rules_processor.find_rule_by_bag_type(&child)))
+            .filter(|(_amount, rule)| rule.is_some())
+            .map(|(amount, rule)| amount * rule.unwrap().count_bags(bag_rules_processor))
+            .sum::<i32>() + 1
+    }
 }
 
 struct BagRulesRecogniser {
@@ -103,6 +111,19 @@ impl BagRulesProcessor {
 
         all_rules.len() - 1
     }
+
+    fn process_total_bags(&self, bag_name: &str) -> i32 {
+        println!("Scanning {} rules!", self.rules.len());
+
+        let bag_type = BagType { name: bag_name.to_string(), amount: 0 };
+        let bag_rule = self.find_rule_by_bag_type(&bag_type);
+
+        if bag_rule.is_none() {
+            return 0;
+        }
+
+        bag_rule.unwrap().count_bags(&self) - 1
+    }
 }
 
 struct Input {
@@ -137,4 +158,5 @@ fn main() {
     let bag_rule_processor = input.load();
 
     println!("Answer one: {}", bag_rule_processor.process("shiny gold"));
+    println!("Answer two: {}", bag_rule_processor.process_total_bags("shiny gold"));
 }

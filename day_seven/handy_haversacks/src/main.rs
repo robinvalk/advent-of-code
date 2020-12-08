@@ -1,14 +1,26 @@
 use std::fs;
 use std::env;
+use std::fmt;
 
 struct BagType {
     name: String,
     amount: i32,
 }
+impl fmt::Debug for BagType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "[{}]{}", self.amount, self.name)
+    }
+}
 
 struct BagRule {
     bag_type: BagType,
     children: Vec<BagType>,
+}
+impl fmt::Debug for BagRule {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        println!("{}", self.bag_type.name);
+        write!(f, "{}\n{}\n\n", self.bag_type.name, self.children.iter().map(|child| child.name.as_str()).collect::<Vec<&str>>().join(", "))
+    }
 }
 
 impl BagRule {
@@ -20,11 +32,9 @@ impl BagRule {
         self.children.iter()
             .map(|child| bag_rules_processor.find_rule_by_bag_type(&child))
             .filter(|rule| rule.is_some())
-            .filter(|bag_rule| bag_rule.unwrap().has_child_with_name(bag_rules_processor, bag_name))
+            .filter(|rule| rule.unwrap().has_child_with_name(bag_rules_processor, bag_name))
             .count() > 0
     }
-
-
 }
 
 struct BagRulesRecogniser {
@@ -41,10 +51,17 @@ impl BagRulesRecogniser {
             }
 
             let line_split = line.trim_end_matches(".").split(" bags contain ").collect::<Vec<&str>>();
-
             let bag_type = BagRulesRecogniser::parse_bag_type(line_split[0]);
+
+            if line_split[1] == "no other bags" {
+                rules.push(BagRule { bag_type, children: Vec::new() });
+                continue;
+            }
+
             let children_split = line_split[1].split(", ").collect::<Vec<&str>>();
-            let children = children_split.iter().map(|child| BagRulesRecogniser::map_to_child(child)).collect();
+            let children = children_split.iter()
+                .map(|child| BagRulesRecogniser::map_to_child(child))
+                .collect();
 
             rules.push(BagRule { bag_type, children });
         }
@@ -57,10 +74,9 @@ impl BagRulesRecogniser {
     }
 
     fn map_to_child(line: &str) -> BagType {
-        let splits = line.trim_end_matches(" bags").split(" ").collect::<Vec<&str>>();
+        let splits = line.trim_end_matches(" bag").trim_end_matches(" bags").split(" ").collect::<Vec<&str>>();
         let name = splits[1..].join(" ");
-        let amount_str = if splits[0] != "no" { splits[0] } else { "0" };
-        let amount = amount_str.parse::<i32>().expect("Amount could not be parsed into integer");
+        let amount = splits[0].parse::<i32>().expect("Amount could not be parsed into integer");
 
         BagType { name: name.to_string(), amount }
     }
@@ -84,10 +100,6 @@ impl BagRulesProcessor {
         let all_rules = self.rules.iter()
             .filter(|rule| rule.has_child_with_name(&self, bag_name))
             .collect::<Vec<&BagRule>>();
-
-        for rule in all_rules.iter() {
-            println!("{}", rule.bag_type.name);
-        }
 
         all_rules.len() - 1
     }
